@@ -111,10 +111,17 @@ func ParseHmeCurl(curlText string) (*model.Account, error) {
 		}
 	}
 
+	apiKey := headers["x-apple-api-key"]
+	scnt := headers["scnt"]
+	authType := model.AuthTypeCurlCookie
+	if strings.Contains(host, "account.apple.com") || apiKey != "" || scnt != "" {
+		authType = model.AuthTypeAppleAccount
+	}
+
 	account := &model.Account{
 		ID:                    fmt.Sprintf("acc_%d", time.Now().UnixNano()),
 		Email:                 email,
-		AuthType:              model.AuthTypeCurlCookie,
+		AuthType:              authType,
 		Status:                model.StatusIdle,
 		Host:                  host,
 		DSID:                  dsid,
@@ -122,6 +129,8 @@ func ParseHmeCurl(curlText string) (*model.Account, error) {
 		ClientBuildNumber:     buildNumber,
 		ClientMasteringNumber: masteringNumber,
 		Cookie:                cookie,
+		Scnt:                  scnt,
+		APIKey:                apiKey,
 		Origin:                origin,
 		Referer:               referer,
 		UserAgent:             userAgent,
@@ -270,6 +279,17 @@ func SmartBatchImport(content string) *ImportResult {
 					acc, err := ParseRawCookie(cookie, "")
 					if err == nil {
 						acc.Email = email
+						if scnt, ok := item["scnt"].(string); ok && scnt != "" {
+							acc.Scnt = scnt
+						}
+						if apiKey, ok := item["api_key"].(string); ok && apiKey != "" {
+							acc.APIKey = apiKey
+						}
+						if at, ok := item["auth_type"].(string); ok && at == string(model.AuthTypeAppleAccount) {
+							acc.AuthType = model.AuthTypeAppleAccount
+						} else if acc.Scnt != "" && acc.APIKey != "" {
+							acc.AuthType = model.AuthTypeAppleAccount
+						}
 						res.Accounts = append(res.Accounts, acc)
 						res.SuccessCount++
 						continue
