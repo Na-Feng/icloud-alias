@@ -1,0 +1,27 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Runtime and persistent user data
+data/
+*.json.tmp
+*.tmp
+*.log
+
+# IDE and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Reference & scratch
+ref_project1/
+ref_project2/
+scratch/

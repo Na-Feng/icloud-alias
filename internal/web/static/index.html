@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iCloud 别名批量创建与管理系统</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root {
+      --primary: #0071e3;
+      --primary-hover: #0077ed;
+      --bg-dark: #121826;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+    }
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding-bottom: 60px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 0;
+      border-bottom: 1px solid #334155;
+      margin-bottom: 24px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #38bdf8;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+    }
+    .stat-title { font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; color: #f8fafc; }
+    .stat-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      margin-left: 8px;
+    }
+    .panel-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .progress-bar-container {
+      background: #334155;
+      border-radius: 8px;
+      height: 12px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    .progress-bar {
+      background: linear-gradient(90deg, #38bdf8, #3b82f6);
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    .tab-nav {
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid #334155;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab-btn.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+      font-weight: 600;
+    }
+    .badge {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .badge-idle { background: #065f46; color: #34d399; }
+    .badge-running { background: #1e40af; color: #60a5fa; animation: pulse 1.5s infinite; }
+    .badge-cooldown { background: #92400e; color: #fbbf24; }
+    .badge-limit { background: #4c1d95; color: #c084fc; }
+    .badge-2fa { background: #7c2d12; color: #fb923c; }
+    .badge-expired { background: #881337; color: #f43f5e; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    .log-terminal {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 14px;
+      height: 280px;
+      overflow-y: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+    .log-row { margin-bottom: 4px; display: flex; gap: 8px; line-height: 1.4; }
+    .log-time { color: #64748b; min-width: 65px; }
+    .log-acc { color: #38bdf8; min-width: 130px; overflow: hidden; text-overflow: ellipsis; }
+    .log-msg-info { color: #cbd5e1; }
+    .log-msg-success { color: #4ade80; font-weight: 600; }
+    .log-msg-warning { color: #facc15; }
+    .log-msg-error { color: #f87171; }
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { color: #94a3b8; border-bottom: 1px solid #334155; padding: 10px 12px; text-align: left; }
+    td { border-bottom: 1px solid #1e293b; padding: 12px; vertical-align: middle; }
+    .btn-sm { padding: 4px 10px; font-size: 0.8rem; margin: 0 4px; border-radius: 6px; }
+    dialog { background: #1e293b; border: 1px solid #475569; border-radius: 12px; color: #f8fafc; max-width: 600px; width: 90%; }
+    dialog::backdrop { background: rgba(0,0,0,0.7); }
+    textarea { width: 100%; min-height: 160px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.85rem; }
+    input[type="text"], input[type="number"], select { background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<div id="app" class="container">
+  <!-- Header -->
+  <header class="header">
+    <h1><span>☁️</span> iCloud 别名批量创建平台</h1>
+    <div>
+      <button class="outline" @click="openImportModal" style="margin-right: 8px;">➕ 导入邮箱</button>
+      <button :class="stats.task_running ? 'secondary' : 'primary'" @click="toggleTask">
+        {{ stats.task_running ? '⏹ 停止批量任务' : '▶ 启动批量创建' }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Metrics Dashboard -->
+  <section class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-title">已导入账号总数</div>
+      <div class="stat-value">{{ stats.total_accounts }} <span class="stat-badge badge-idle">{{ stats.active_accounts }} 可用</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">已创建别名总数</div>
+      <div class="stat-value" style="color: #38bdf8;">{{ stats.total_aliases }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">今日创建数量</div>
+      <div class="stat-value" style="color: #4ade80;">+{{ stats.today_aliases }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">当前任务进度 ({{ taskState.total_created }} / {{ taskConfig.target_total_limit }})</div>
+      <div class="stat-value" style="color: #f59e0b;">{{ stats.task_progress }}%</div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" :style="{ width: stats.task_progress + '%' }"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Task Control Settings Panel -->
+  <section class="panel-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h3 style="margin: 0; font-size: 1.1rem; color: #94a3b8;">⚙️ 别名创建上限与控制配置</h3>
+      <span :class="stats.task_running ? 'badge badge-running' : 'badge badge-idle'">
+        {{ taskState.current_status || (stats.task_running ? '运行中' : '空闲中') }}
+      </span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
+      <div>
+        <label style="font-size: 0.8rem; color: #94a3b8;">本次任务目标上限 (总数)</label>
+        <input type="number" v-model.number="taskConfig.target_total_limit" min="1" :disabled="stats.task_running">
+      </div>
+      <div>
+        <label style="font-size: 0.8rem; color: #94a3b8;">单账号别名上限 (个/号)</label>
+        <input type="number" v-model.number="taskConfig.per_account_limit" min="1" :disabled="stats.task_running">
+      </div>
+      <div>
+        <label style="font-size: 0.8rem; color: #94a3b8;">生成间隔 (秒/次)</label>
+        <input type="number" v-model.number="taskConfig.interval_seconds" min="1" :disabled="stats.task_running">
+      </div>
+      <div>
+        <label style="font-size: 0.8rem; color: #94a3b8;">频控自动冷却 (分钟)</label>
+        <input type="number" v-model.number="taskConfig.cooldown_minutes" min="1" :disabled="stats.task_running">
+      </div>
+      <div>
+        <label style="font-size: 0.8rem; color: #94a3b8;">别名标签前缀</label>
+        <input type="text" v-model="taskConfig.label_prefix" placeholder="如 alias" :disabled="stats.task_running">
+      </div>
+    </div>
+  </section>
+
+  <!-- Realtime Terminal Log -->
+  <section class="panel-card" style="padding: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <span style="font-weight: 600; font-size: 0.95rem; color: #38bdf8;">📡 实时生成流水与系统日志</span>
+      <div>
+        <button class="outline btn-sm" @click="clearLogs">清空日志</button>
+      </div>
+    </div>
+    <div class="log-terminal" ref="logBox">
+      <div v-if="logs.length === 0" style="color: #64748b; text-align: center; padding-top: 100px;">
+        暂无运行日志，点击右上角【启动批量创建】开始生成别名
+      </div>
+      <div v-for="log in logs" :key="log.id" class="log-row">
+        <span class="log-time">{{ formatTime(log.timestamp) }}</span>
+        <span class="log-acc">[{{ log.account || 'System' }}]</span>
+        <span :class="'log-msg-' + log.level">{{ log.message }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigation Tabs -->
+  <div class="tab-nav">
+    <button class="tab-btn" :class="{ active: currentTab === 'accounts' }" @click="currentTab = 'accounts'">
+      📋 账号列表 ({{ accounts.length }})
+    </button>
+    <button class="tab-btn" :class="{ active: currentTab === 'aliases' }" @click="currentTab = 'aliases'">
+      📬 别名列表 ({{ aliases.length }})
+    </button>
+  </div>
+
+  <!-- Accounts Table -->
+  <section v-if="currentTab === 'accounts'" class="panel-card" style="padding: 0;">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Apple 账号</th>
+            <th>接入模式</th>
+            <th>已有别名</th>
+            <th>本次已建</th>
+            <th>单号上限</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="accounts.length === 0">
+            <td colspan="7" style="text-align: center; color: #64748b; padding: 40px;">
+              尚未导入任何账号，点击上方【➕ 导入邮箱】导入
+            </td>
+          </tr>
+          <tr v-for="acc in accounts" :key="acc.id">
+            <td style="font-weight: 600;">
+              {{ acc.email }}
+              <span v-if="acc.code_url" class="badge" style="background: #0284c7; color: #fff; margin-left: 6px; font-size: 0.7rem;" :title="acc.code_url">⚡ 自动取码</span>
+              <div v-if="acc.remark" style="font-size: 0.75rem; color: #64748b;">{{ acc.remark }}</div>
+            </td>
+            <td>
+              <span v-if="acc.auth_type === 'curl_cookie'" style="color: #38bdf8;">cURL / Cookie</span>
+              <span v-else-if="acc.auth_type === 'apple_account'" style="color: #a855f7;">Apple Account</span>
+              <span v-else style="color: #f97316;">账号密码 (2FA)</span>
+            </td>
+            <td>{{ acc.current_count }}</td>
+            <td style="color: #4ade80; font-weight: 600;">+{{ acc.session_created }}</td>
+            <td>
+              <span v-if="acc.max_limit > 0">{{ acc.max_limit }} 个</span>
+              <span v-else style="color: #64748b;">继承任务 ({{ taskConfig.per_account_limit }})</span>
+            </td>
+            <td>
+              <span :class="'badge badge-' + acc.status">
+                {{ formatStatus(acc.status) }}
+              </span>
+              <div v-if="acc.last_error" style="font-size: 0.7rem; color: #f87171; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" :title="acc.last_error">
+                {{ acc.last_error }}
+              </div>
+            </td>
+            <td>
+              <button v-if="acc.code_url && acc.status !== 'idle' && acc.status !== 'running'" class="btn-sm" style="background: #0284c7;" @click="autoLoginAccount(acc)">🤖 自动登录</button>
+              <button v-else-if="acc.auth_type === 'password_2fa' && acc.status === 'waiting_2fa'" class="btn-sm" style="background: #ea580c;" @click="open2FAModal(acc)">手动2FA</button>
+              <button class="outline btn-sm" @click="testAccount(acc)">测试</button>
+              <button class="outline btn-sm" @click="editLimit(acc)">上限</button>
+              <button class="outline btn-sm" style="color: #ef4444; border-color: #ef4444;" @click="deleteAccount(acc)">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Aliases Table -->
+  <section v-if="currentTab === 'aliases'" class="panel-card" style="padding: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 10px; flex-wrap: wrap;">
+      <div style="display: flex; gap: 10px; flex: 1; max-width: 400px;">
+        <input type="text" v-model="aliasSearch" placeholder="搜索别名、主账号或标签..." style="margin: 0;">
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="outline btn-sm" @click="copyAllAliases">📋 复制全部别名</button>
+        <button class="outline btn-sm" @click="exportAliases('txt')">📄 导出 TXT</button>
+        <button class="outline btn-sm" @click="exportAliases('csv')">📊 导出 CSV</button>
+      </div>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>生成的别名邮箱</th>
+            <th>所属主账号</th>
+            <th>标签</th>
+            <th>备注</th>
+            <th>创建时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="filteredAliases.length === 0">
+            <td colspan="6" style="text-align: center; color: #64748b; padding: 40px;">
+              暂无别名记录
+            </td>
+          </tr>
+          <tr v-for="(alias, idx) in filteredAliases" :key="alias.id">
+            <td style="color: #64748b;">{{ idx + 1 }}</td>
+            <td style="font-weight: 600; color: #38bdf8;">{{ alias.email }}</td>
+            <td>{{ alias.account_email }}</td>
+            <td>{{ alias.label }}</td>
+            <td style="color: #94a3b8; font-size: 0.8rem;">{{ alias.note }}</td>
+            <td style="color: #64748b; font-size: 0.8rem;">{{ formatFullTime(alias.created_at) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Import Modal -->
+  <dialog ref="importModal">
+    <article>
+      <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h4 style="margin: 0;">📥 导入 Apple / iCloud 邮箱</h4>
+        <button class="outline btn-sm" @click="closeImportModal">✕</button>
+      </header>
+      <div style="margin-bottom: 10px; font-size: 0.85rem; color: #94a3b8;">
+        智能识别导入格式：支持 <b>账号----密码----取码接口URL</b>（自动2FA接码）、<b>cURL (bash)</b>、Cookie 文本或纯账号密码：
+      </div>
+      <textarea v-model="importText" placeholder="支持智能批量粘贴（每行一条）：
+1. 账号----密码----取码接口URL（推荐，支持全自动取码登录）：
+   your_apple_id@icloud.com----YourPassword123----https://devices.example.com/api/getcode?id=100001
+2. 账号----密码 格式：
+   user@icloud.com----Password123
+3. 从浏览器 F12 网络面板复制的 cURL (bash) 脚本
+4. 纯 Cookie 文本：X-APPLE-WEBAUTH-TOKEN=..."></textarea>
+      <div v-if="importNotice" style="margin-top: 10px; font-size: 0.85rem;" :style="{ color: importSuccess ? '#4ade80' : '#f87171' }">
+        {{ importNotice }}
+      </div>
+      <footer style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+        <button class="outline" @click="closeImportModal">取消</button>
+        <button class="primary" :disabled="importing" @click="submitImport">
+          {{ importing ? '解析导入中...' : '确认导入' }}
+        </button>
+      </footer>
+    </article>
+  </dialog>
+
+  <!-- 2FA Modal -->
+  <dialog ref="twoFaModal">
+    <article>
+      <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h4 style="margin: 0;">🔐 输入 Apple 双重认证码 (2FA)</h4>
+        <button class="outline btn-sm" @click="close2FAModal">✕</button>
+      </header>
+      <p style="font-size: 0.9rem; color: #94a3b8;">
+        Apple 已向账号 <b>{{ current2FAAccount?.email }}</b> 绑定的受信任设备发送 6 位验证码，请在设备允许后输入：
+      </p>
+      <input type="text" v-model="twoFACode" placeholder="输入 6 位数字验证码" maxlength="6" style="text-align: center; font-size: 1.5rem; letter-spacing: 4px;">
+      <footer style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+        <button class="outline" @click="close2FAModal">取消</button>
+        <button class="primary" :disabled="submitting2FA" @click="submit2FACode">
+          {{ submitting2FA ? '验证中...' : '确认提交' }}
+        </button>
+      </footer>
+    </article>
+  </dialog>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, nextTick } = Vue;
+
+createApp({
+  setup() {
+    const stats = ref({
+      total_accounts: 0,
+      active_accounts: 0,
+      total_aliases: 0,
+      today_aliases: 0,
+      task_running: false,
+      task_progress: 0,
+      task_target: 50
+    });
+    const taskConfig = ref({
+      target_total_limit: 50,
+      per_account_limit: 5,
+      interval_seconds: 3,
+      cooldown_minutes: 15,
+      label_prefix: 'alias',
+      note: 'iCloud Alias Manager'
+    });
+    const taskState = ref({
+      running: false,
+      total_created: 0,
+      total_failed: 0,
+      current_status: '空闲'
+    });
+
+    const accounts = ref([]);
+    const aliases = ref([]);
+    const logs = ref([]);
+    const currentTab = ref('accounts');
+    const aliasSearch = ref('');
+    const logBox = ref(null);
+
+    // Modals
+    const importModal = ref(null);
+    const importText = ref('');
+    const importing = ref(false);
+    const importNotice = ref('');
+    const importSuccess = ref(true);
+
+    const twoFaModal = ref(null);
+    const current2FAAccount = ref(null);
+    const current2FAPendingID = ref('');
+    const twoFACode = ref('');
+    const submitting2FA = ref(false);
+
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        if (data.success) stats.value = data.stats;
+      } catch (e) {}
+    };
+
+    const fetchTaskState = async () => {
+      try {
+        const res = await fetch('/api/task/state');
+        const data = await res.json();
+        if (data.success) {
+          taskState.value = data.state;
+          if (data.config && !stats.value.task_running) {
+            taskConfig.value = data.config;
+          }
+        }
+      } catch (e) {}
+    };
+
+    const fetchAccounts = async () => {
+      try {
+        const res = await fetch('/api/accounts');
+        const data = await res.json();
+        if (data.success) accounts.value = data.accounts || [];
+      } catch (e) {}
+    };
+
+    const fetchAliases = async () => {
+      try {
+        const res = await fetch('/api/aliases');
+        const data = await res.json();
+        if (data.success) aliases.value = data.aliases || [];
+      } catch (e) {}
+    };
+
+    const fetchLogs = async () => {
+      try {
+        const res = await fetch('/api/logs?limit=100');
+        const data = await res.json();
+        if (data.success) {
+          logs.value = data.logs || [];
+          scrollLogBottom();
+        }
+      } catch (e) {}
+    };
+
+    const initSSE = () => {
+      const es = new EventSource('/api/events');
+      es.addEventListener('log', (e) => {
+        try {
+          const log = JSON.parse(e.data);
+          logs.value.push(log);
+          if (logs.value.length > 300) logs.value.shift();
+          scrollLogBottom();
+          fetchAliases();
+          fetchAccounts();
+        } catch (err) {}
+      });
+      es.addEventListener('stats', (e) => {
+        try {
+          const st = JSON.parse(e.data);
+          stats.value = st;
+          fetchTaskState();
+        } catch (err) {}
+      });
+      es.onerror = () => {
+        setTimeout(initSSE, 5000);
+      };
+    };
+
+    const scrollLogBottom = () => {
+      nextTick(() => {
+        if (logBox.value) {
+          logBox.value.scrollTop = logBox.value.scrollHeight;
+        }
+      });
+    };
+
+    const toggleTask = async () => {
+      if (stats.value.task_running) {
+        await fetch('/api/task/stop', { method: 'POST' });
+      } else {
+        await fetch('/api/task/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taskConfig.value)
+        });
+      }
+      setTimeout(() => {
+        fetchStats();
+        fetchTaskState();
+      }, 500);
+    };
+
+    // Import
+    const openImportModal = () => {
+      importText.value = '';
+      importNotice.value = '';
+      importModal.value.showModal();
+    };
+    const closeImportModal = () => { importModal.value.close(); };
+    const submitImport = async () => {
+      if (!importText.value.trim()) return;
+      importing.value = true;
+      importNotice.value = '';
+      try {
+        const res = await fetch('/api/accounts/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: importText.value })
+        });
+        const data = await res.json();
+        if (data.success) {
+          importSuccess.value = true;
+          importNotice.value = `成功导入 ${data.success_count} 个账号！失败 ${data.failure_count} 个。`;
+          fetchAccounts();
+          fetchStats();
+          setTimeout(closeImportModal, 1500);
+        } else {
+          importSuccess.value = false;
+          importNotice.value = data.error || '导入失败';
+        }
+      } catch (e) {
+        importSuccess.value = false;
+        importNotice.value = '网络请求异常: ' + e.message;
+      } finally {
+        importing.value = false;
+      }
+    };
+
+    // 2FA
+    const open2FAModal = async (acc) => {
+      current2FAAccount.value = acc;
+      twoFACode.value = '';
+      submitting2FA.value = true;
+      try {
+        const res = await fetch('/api/accounts/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: acc.email, password: acc.password })
+        });
+        const data = await res.json();
+        if (data.success && data.needs_2fa) {
+          current2FAPendingID.value = data.pending_id;
+          twoFaModal.value.showModal();
+        } else if (data.success && !data.needs_2fa) {
+          alert('登录成功！已就绪');
+          fetchAccounts();
+        } else {
+          alert('发起登录失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        alert('网络错误: ' + e.message);
+      } finally {
+        submitting2FA.value = false;
+      }
+    };
+    const close2FAModal = () => { twoFaModal.value.close(); };
+    const submit2FACode = async () => {
+      if (!twoFACode.value.trim() || twoFACode.value.trim().length !== 6) {
+        alert('请输入 6 位数字验证码');
+        return;
+      }
+      submitting2FA.value = true;
+      try {
+        const res = await fetch('/api/accounts/2fa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pending_id: current2FAPendingID.value,
+            code: twoFACode.value.trim()
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(data.message || '2FA 验证成功！');
+          close2FAModal();
+          fetchAccounts();
+        } else {
+          alert('验证失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        alert('请求错误: ' + e.message);
+      } finally {
+        submitting2FA.value = false;
+      }
+    };
+
+    const autoLoginAccount = async (acc) => {
+      if (!acc.code_url) return alert('该账号未配置取码接口');
+      try {
+        const res = await fetch('/api/accounts/auto-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: acc.id })
+        });
+        const data = await res.json();
+        alert(data.message || (data.success ? '自动取码登录成功！' : '自动登录失败: ' + data.error));
+        fetchAccounts();
+      } catch (e) {
+        alert('请求出错: ' + e.message);
+      }
+    };
+
+    // Limits & Accounts
+    const editLimit = async (acc) => {
+      const val = prompt(`设置账号 ${acc.email} 的别名创建上限 (当前: ${acc.max_limit}，填 0 表示继承全局任务上限):`, acc.max_limit);
+      if (val === null) return;
+      const num = parseInt(val, 10);
+      if (isNaN(num) || num < 0) return alert('请输入有效非负整数');
+      await fetch('/api/accounts/update-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: acc.id, max_limit: num })
+      });
+      fetchAccounts();
+    };
+
+    const testAccount = async (acc) => {
+      try {
+        const res = await fetch('/api/accounts/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: acc.id })
+        });
+        const data = await res.json();
+        alert(data.message || (data.success ? '检测正常！' : '检测失败: ' + data.error));
+        fetchAccounts();
+      } catch (e) {
+        alert('测试请求出错: ' + e.message);
+      }
+    };
+
+    const deleteAccount = async (acc) => {
+      if (!confirm(`确定删除账号 ${acc.email} 吗？`)) return;
+      await fetch('/api/accounts/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: acc.id })
+      });
+      fetchAccounts();
+      fetchStats();
+    };
+
+    const clearLogs = async () => {
+      await fetch('/api/logs/clear', { method: 'POST' });
+      logs.value = [];
+    };
+
+    // Export & Copy
+    const copyAllAliases = () => {
+      if (aliases.value.length === 0) return alert('暂无别名');
+      const text = aliases.value.map(a => a.email).join('\n');
+      navigator.clipboard.writeText(text);
+      alert(`已复制全部 ${aliases.value.length} 个别名到剪贴板！`);
+    };
+    const exportAliases = (format) => {
+      window.open('/api/aliases/export?format=' + format, '_blank');
+    };
+
+    // Formatters
+    const formatTime = (ts) => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toTimeString().split(' ')[0];
+    };
+    const formatFullTime = (ts) => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleDateString() + ' ' + d.toTimeString().split(' ')[0];
+    };
+    const formatStatus = (st) => {
+      const map = {
+        idle: '可用 (空闲)',
+        running: '创建中',
+        cooldown: '冷却中',
+        limit_reached: '已达上限',
+        waiting_2fa: '待验证 2FA',
+        expired: '凭据已失效',
+        error: '异常'
+      };
+      return map[st] || st;
+    };
+
+    const filteredAliases = computed(() => {
+      if (!aliasSearch.value.trim()) return aliases.value;
+      const s = aliasSearch.value.toLowerCase();
+      return aliases.value.filter(a =>
+        a.email.toLowerCase().includes(s) ||
+        a.account_email.toLowerCase().includes(s) ||
+        (a.label && a.label.toLowerCase().includes(s)) ||
+        (a.note && a.note.toLowerCase().includes(s))
+      );
+    });
+
+    onMounted(() => {
+      fetchStats();
+      fetchTaskState();
+      fetchAccounts();
+      fetchAliases();
+      fetchLogs();
+      initSSE();
+      setInterval(() => {
+        fetchStats();
+        fetchTaskState();
+      }, 5000);
+    });
+
+    return {
+      stats,
+      taskConfig,
+      taskState,
+      accounts,
+      aliases,
+      logs,
+      currentTab,
+      aliasSearch,
+      filteredAliases,
+      logBox,
+      importModal,
+      importText,
+      importing,
+      importNotice,
+      importSuccess,
+      twoFaModal,
+      current2FAAccount,
+      twoFACode,
+      submitting2FA,
+      toggleTask,
+      openImportModal,
+      closeImportModal,
+      submitImport,
+      open2FAModal,
+      close2FAModal,
+      submit2FACode,
+      autoLoginAccount,
+      editLimit,
+      testAccount,
+      deleteAccount,
+      clearLogs,
+      copyAllAliases,
+      exportAliases,
+      formatTime,
+      formatFullTime,
+      formatStatus
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
